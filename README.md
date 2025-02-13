@@ -1,5 +1,8 @@
 # -Introduction-to-Programming-1---Coursework-1.2-Game-project-submission-001-
 Developed a fully interactive 2D side-scrolling game using JavaScript and the p5.js library.
+
+![image](https://github.com/user-attachments/assets/f5307aea-d995-4478-98af-b735f27c7b99)
+
 Instructions
 Overview
 1. Make a copy of your code from part 3b
