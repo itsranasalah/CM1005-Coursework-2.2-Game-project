@@ -1,7 +1,8 @@
 # CM1005-Coursework-2.2-Game-project-submission
 Developed a fully interactive 2D side-scrolling game using JavaScript and the p5.js library.
 
-![image](https://github.com/user-attachments/assets/f5307aea-d995-4478-98af-b735f27c7b99)
+![image](https://github.com/user-attachments/assets/db12491a-5f40-4339-9c31-42cdf2f2c377)
+
 
 Instructions
 Overview
