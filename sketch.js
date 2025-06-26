@@ -1,31 +1,49 @@
-var trees_x = []; // Array of trees
-var clouds = []; // Array of Clouds
-let lastCloudX; // Tracks the rightmost cloud
-var mountains = []; //Array of mountains
-var canyon = []; // Array of canyons
-var collectables = []; // Array to hold multiple collectables
-var collectable;
-var cameraPosX;
-var gameChar_x; // Character's x position
-var gameChar_y; // Character's y position (base position)
-var scaleFactor = 0.48;
-var gravity = 1; // Gravity for falling
-var jumpStrength = -18; // Higher jump
-var velocityY = 6; // Vertical velocity for jumping and falling
-var isOnGround = true; // To check if the character is on the ground
-var groundLevel = 236;
-var score = 0; // Score
-var Font; // Customzed Font
+let trees_x = []; // Array of trees
+let clouds = []; // Array of Clouds
+let mountains = []; //Array of mountains
+let canyon = []; // Array of canyons
+let collectables = []; // Array to hold multiple collectables
+let enemies = [];
+let platforms = []; // Array to hold platforms
+let lastCloud_x; // Tracks the rightmost cloud
+let cameraPos_x;
+let gameChar_x; // Character's x position
+let gameChar_y; // Character's y position (base position)
+let scaleFactor = 0.48;
+let gravity = 1; // Gravity for falling
+let jumpStrength = -18; // Higher jump
+let isOnGround = true; // To check if the character is on the ground
+let groundLevel = 236;
+let jumpCooldown = 0;
+let landingSpeed = 0.8; // Adjust this value between 0.05-0.3 (lower = smoother/slower)
+let target_y = null;
+let score = 0; // Score
+let font; // Customzed Font
+let lives = 3; // Start with 3 lives
 function preload() {
-  // Adding the path to the font file
-  Font = loadFont("Font/ByteBounce.ttf");
+  font = loadFont("Font/ByteBounce.ttf"); // Adding the path to the font file
+  heartImage = loadImage("Images/pixel-heart-2779422.png"); // Heart Image to represent the character's lives
+  collectSound = loadSound("Sounds/collect-ring-15982.mp3"); // Load Collect Item Sound
+  bgMusic = loadSound("Sounds/Ancient Egyptian Music  Desert Sphinx.mp3"); //  Load background music
+  deathSound = loadSound("Sounds/pixel-death-66829.mp3"); // Load Death Sound
+  gameOverSound = loadSound("Sounds/game-over-38511.mp3"); // Load Game Over Sound
+  jumpSound = loadSound("Sounds/8-bit-jump-001-171817.mp3"); // Load Jump Sound
+  winSound = loadSound("Sounds/you-win-sequence-2-183949.mp3"); // Load Win Sound
+  enemyImg = loadImage("Images/zoe-gonzalez-t3zoegonzalezidle02.gif"); // Load enemy GIF
+  meowSound = loadSound("Sounds/cat-meow-7-fx-306186.mp3"); // Meow sound when the character touches the enemy
+  winVideo = createVideo(
+    "Images/footage_and_after_effects_project_light_speed_starwars (1080p).mp4"
+  );
+  winVideo.hide(); // Hide default video element
+  platformImg = loadImage("Images/Wooden_platform_sprite_for_video_game.png");
 }
+
 function setup() {
   createCanvas(1024, 576);
-  floorPos_y = (height * 3) / 4;
-  cameraPosX = 0;
+  floosPos_y = (height * 3) / 4;
+  cameraPos_x = 0;
   gameChar_x = 200;
-  gameChar_y = floorPos_y;
+  gameChar_y = floosPos_y;
   score = 0; // Initialize score to 0
 
   isLeft = false;
@@ -33,16 +51,33 @@ function setup() {
   isPlummeting = false;
   isJumping = false;
   isFound = false;
+  onPlatform = false; // Flag to check if the character is standing on a platform
 
-  // Define multiple collectables
+  // Ensure the background music plays when the game starts
+  if (!bgMusic.isPlaying()) {
+    bgMusic.loop();
+    bgMusic.setVolume(0.5); // Adjust volume
+  }
+
+  // Platforms
+  platforms = [
+    createPlatform(400, 290, 100, 20),
+    createPlatform(800, 290, 100, 20),
+    createPlatform(1200, 290, 100, 20),
+    createPlatform(1600, 290, 100, 20),
+    createPlatform(2000, 290, 100, 20),
+    createPlatform(2400, 290, 100, 20),
+  ];
+
+  // Collectables
   collectables = [
-    { x_pos: 200, y_pos: floorPos_y - 100, size: 0.16, isFound: false },
-    { x_pos: 900, y_pos: floorPos_y - 100, size: 0.16, isFound: false },
-    { x_pos: 1200, y_pos: floorPos_y - 100, size: 0.16, isFound: false },
-    { x_pos: 1500, y_pos: floorPos_y - 100, size: 0.16, isFound: false },
-    { x_pos: 1800, y_pos: floorPos_y - 100, size: 0.16, isFound: false },
-    { x_pos: 2100, y_pos: floorPos_y - 100, size: 0.16, isFound: false },
-    { x_pos: 2450, y_pos: floorPos_y - 100, size: 0.16, isFound: false },
+    { x_pos: 200, y_pos: floosPos_y - 100, size: 0.16, isFound: false },
+    { x_pos: 900, y_pos: floosPos_y - 100, size: 0.16, isFound: false },
+    { x_pos: 1200, y_pos: floosPos_y - 100, size: 0.16, isFound: false },
+    { x_pos: 1500, y_pos: floosPos_y - 100, size: 0.16, isFound: false },
+    { x_pos: 1800, y_pos: floosPos_y - 100, size: 0.16, isFound: false },
+    { x_pos: 2100, y_pos: floosPos_y - 100, size: 0.16, isFound: false },
+    { x_pos: 2450, y_pos: floosPos_y - 100, size: 0.16, isFound: false },
   ];
 
   // Define an array of canyon
@@ -50,8 +85,18 @@ function setup() {
     { x: 500, y: 400, width: 180, height: 176 }, // First canyon
     { x: 1100, y: 400, width: 180, height: 176 },
     { x: 1700, y: 400, width: 180, height: 176 },
-    { x: 2300, y: 400, width: 180, height: 176 }, // Second canyon, 400 pixels away    // Second canyon, 400 pixels away
+    { x: 2300, y: 400, width: 180, height: 176 }, // Second canyon, 400 pixels away
   ];
+
+  for (let i = 0; i < canyon.length - 1; i++) {
+    let x1 = canyon[i].x;
+    let x2 = canyon[i + 1].x;
+
+    let enemyX = (x1 + x2) / 2; // Center enemy between canyons
+    let enemyY = groundLevel + 170;
+
+    enemies.push(new Enemy(enemyX, enemyY, 110, 0)); // Speed = 0 (no movement)
+  }
 
   // Arrays of mountains (Pyramids)
   mountains = [
@@ -90,6 +135,7 @@ function setup() {
     { x: 1960, y: 329, scale: 0.6 }, // Tree 5
     { x: 2600, y: 329, scale: 0.6 }, // Tree 6
   ];
+
   // Arrays of clouds
   clouds = [
     { x: 250, y: 140, size: 120 },
@@ -97,8 +143,8 @@ function setup() {
     { x: 890, y: 100, size: 100 },
     { x: 690, y: 100, size: 105 },
   ];
-  lastCloudX = Math.max(...clouds.map((cloud) => cloud.x));
-} // End of function setup()
+  lastCloud_x = Math.max(...clouds.map((cloud) => cloud.x));
+}
 
 function draw() {
   background(176, 196, 222);
@@ -107,15 +153,10 @@ function draw() {
   drawSun(600, 200, 1.6);
 
   // Mountains
-  for (var i = 0; i < mountains.length; i++) {
-    var p = mountains[i];
+  for (let i = 0; i < mountains.length; i++) {
+    let p = mountains[i];
     drawMountains(p.x, p.y, p.height, p.width, p.mainColor, p.shadowColor);
   }
-
-  // Scrolling Scenery
-  cameraPosX = gameChar_x - width / 2;
-  push();
-  translate(-cameraPosX, 0);
 
   // Clouds
   for (let i = clouds.length - 1; i >= 0; i--) {
@@ -125,10 +166,28 @@ function draw() {
     c.x -= 3; // Adjust speed as needed
   }
 
+  // Draw hearts
+  for (let i = 0; i < lives; i++) {
+    image(heartImage, 114 + i * 33, 13, 30, 30);
+  }
+
+  // Birds
+  let birdPositions = [
+    { x: 300, y: 150, size: 20 },
+    { x: 470, y: 85, size: 15 },
+    { x: 690, y: 180, size: 25 },
+    { x: 880, y: 160, size: 20 },
+  ];
+  birdPositions.forEach((b) => drawBird(b.x, b.y, b.size));
+  // Scrolling Scenery
+  cameraPos_x = gameChar_x - width / 2;
+  push();
+  translate(-cameraPos_x, 0);
+
   // Generate Clouds
   let minDistance = 90; // Minimum distance between clouds
-  if (lastCloudX < cameraPosX + width + 200) {
-    let newCloudX = lastCloudX + random(minDistance, minDistance + 200);
+  if (lastCloud_x < cameraPos_x + width + 200) {
+    let newCloudX = lastCloud_x + random(minDistance, minDistance + 200);
     let newCloud = {
       x: newCloudX, // Start farther apart
       y: random(50, 200), // Random vertical position
@@ -136,13 +195,8 @@ function draw() {
     };
 
     clouds.push(newCloud);
-    lastCloudX = newCloud.x; // Update the position of the last cloud
+    lastCloud_x = newCloud.x; // Update the position of the last cloud
   }
-  // Birds
-  drawBird(300, 150, 20);
-  drawBird(470, 85, 15);
-  drawBird(690, 180, 25);
-  drawBird(880, 160, 20);
 
   // Desert ground
   drawFloor();
@@ -163,11 +217,16 @@ function draw() {
   }
 
   // Trees
-  for (var i = 0; i < trees_x.length; i++) {
-    var tree = trees_x[i];
+  for (let i = 0; i < trees_x.length; i++) {
+    let tree = trees_x[i];
     drawTree(tree.x, tree.y, tree.scale);
   }
 
+  for (let i = 0; i < platforms.length; i++) {
+    platforms[i].draw();
+  }
+
+  //Loop of collectable Items
   for (let i = 0; i < collectables.length; i++) {
     let c = collectables[i];
 
@@ -178,75 +237,134 @@ function draw() {
     // Check collision
     if (
       dist(
-        gameChar_x + 50, // Adjusted Character's x position
-        gameChar_y + 153, // Character's y position
+        gameChar_x + 85, // Adjusted Character's x position
+        gameChar_y + 230, // Character's y position
         c.x_pos, // Collectable's x position
         c.y_pos // Collectable's y position
-      ) < 55
+      ) < 29
     ) {
       if (!c.isFound) {
         score += 10; // Increase score
         c.isFound = true; // Mark as found
+        collectSound.play(); // 🔊 Play sound when collected!
       }
     }
   }
 
   // Draw the game character
-  if (isLeft && isJumping) {
-    // Jumping left
+  if (isPlummeting) {
+    if (isLeft) {
+      drawJumpingLeft(gameChar_x, gameChar_y, 0.7);
+    } else if (isRight) {
+      drawJumpingRight(gameChar_x, gameChar_y, 0.7);
+    } else {
+      drawJumpingFacingFroward(gameChar_x, gameChar_y, scaleFactor);
+    }
+  } else if (isLeft && isJumping) {
     drawJumpingLeft(gameChar_x, gameChar_y, 0.7);
   } else if (isRight && isJumping) {
-    // Jumping right
     drawJumpingRight(gameChar_x, gameChar_y, 0.7);
   } else if (isLeft) {
-    // Walking left
     drawLeftWalking(gameChar_x, gameChar_y, 0.7);
   } else if (isRight) {
-    // Walking right
     drawRightWalking(gameChar_x, gameChar_y, 0.7);
   } else if (isJumping) {
-    // Jumping facing forwards
     drawJumpingFacingFroward(gameChar_x, gameChar_y, scaleFactor);
   } else {
-    // Standing front facing
     drawFacingFroward(gameChar_x, gameChar_y, scaleFactor);
   }
-  pop();
 
-  //INTERACTION CODE
-  // Apply gravity or plummeting logic
-  if (!isOnGround || isPlummeting) {
-    velocityY += gravity; // Apply gravity
-    gameChar_y += velocityY; // Update vertical position
-  } else {
-    velocityY = 0; // Reset velocity when on the ground
+  // Draw enemies and check for collisions
+  for (let i = 0; i < enemies.length; i++) {
+    enemies[i].display();
+    enemies[i].checkCollision(gameChar_x - cameraPos_x - 70, gameChar_y + 100); // Adjust for camera offset
+  }
+  pop();
+  // INTERACTION CODE
+  // Update jump cooldown
+  if (jumpCooldown > 0) jumpCooldown--;
+
+  // Apply gravity (only if not on the ground or plummeting)
+  if (!isOnGround && !isPlummeting) {
+    velocity_y += gravity; // Apply gravity
+    gameChar_y += velocity_y; // Update vertical position
   }
 
-  // Check if the character is falling into any canyon
-  for (let c of canyon) {
+  // Check platform collision - IMPROVED DETECTION
+  let landedOnPlatform = false;
+
+  for (let i = 0; i < platforms.length; i++) {
+    let p = platforms[i];
+
+    // Adjusted collision detection with debugging values
+    const charFootY = gameChar_y + 170;
+    const charCenterX = gameChar_x - 30;
+    const charWidth = 100;
+
+    // Check if the character is within the platform's horizontal bounds and landing on it
     if (
-      gameChar_x > c.x - 50 &&
-      gameChar_x < c.x + c.width - 90 &&
-      gameChar_y >= groundLevel
+      charCenterX + charWidth > p.x - 18 &&
+      charCenterX < p.x + p.width - 100 &&
+      charFootY >= p.y - 15 &&
+      charFootY <= p.y + 15 &&
+      velocity_y >= 0
     ) {
-      isPlummeting = true;
+      landedOnPlatform = true;
+      velocity_y = 0; // Stop falling
+
+      // Instead of snapping, set a target position
+      target_y = p.y - 157;
+
+      // Reset jumping state when landing on platform
+      isJumping = false;
+
+      break;
     }
   }
 
-  // Handle jumping
-  if (isJumping && isOnGround) {
-    velocityY = jumpStrength; // Apply upward velocity
-    isOnGround = false; // Character leaves the ground
-    isJumping = false; // Prevent continuous jumping
+  // After the loop, add this to smoothly move to the target position
+  if (target_y !== null) {
+    // Lerp (linear interpolation) to the target
+    gameChar_y = gameChar_y + (target_y - gameChar_y) * 0.6;
+
+    // If we're very close to the target, just snap to it and clear the target
+    if (Math.abs(gameChar_y - target_y) < 0.5) {
+      gameChar_y = target_y;
+      target_y = null;
+    }
   }
 
-  // Handle landing
-  if (gameChar_y >= groundLevel && !isPlummeting) {
+  // Update isOnGround based on both ground and platform status
+  isOnGround =
+    landedOnPlatform || (gameChar_y === groundLevel && !isPlummeting);
+
+  // Canyon falling detection
+  for (let c of canyon) {
+    if (
+      gameChar_x > c.x - 70 && // Adjusted collision range
+      gameChar_x < c.x + c.width - 80 && // Adjusted collision range
+      gameChar_y >= groundLevel
+    ) {
+      isPlummeting = true;
+      isOnGround = false; // Ensure no double landing
+      isJumping = false; // Reset jumping state when falling into canyon
+    }
+  }
+
+  // Add jump cooldown check before allowing a new jump
+  if (isJumping && isOnGround && jumpCooldown <= 0) {
+    velocity_y = jumpStrength; // Apply upward velocity
+    isOnGround = false; // Character leaves the ground
+    isJumping = false; // Prevent continuous jumping
+    jumpCooldown = 10; // Set a cooldown (adjust value as needed)
+  }
+
+  // Handle landing on ground
+  if (gameChar_y >= groundLevel && !isPlummeting && !landedOnPlatform) {
     gameChar_y = groundLevel; // Snap to ground level
-    velocityY = 0; // Reset vertical velocity
+    velocity_y = 0; // Reset vertical velocity
     isOnGround = true;
-  } else {
-    isOnGround = false; // Character is in the air
+    isJumping = false; // Reset jumping state when landing on ground
   }
 
   // Horizontal movement
@@ -259,48 +377,39 @@ function draw() {
 
   // Handle plummeting
   if (isPlummeting) {
-    velocityY += gravity; // Continue applying gravity
-    gameChar_y += velocityY; // Update vertical position
+    velocity_y += gravity; // Continue applying gravity
+    gameChar_y += velocity_y; // Update vertical position
 
-    // Display Game Over when the character falls into the canyon
+    // Game over when falling off the screen
     if (gameChar_y > height) {
-      console.log("Game Over: Fell into the canyon!");
-      textFont(Font);
-      textSize(100);
-      textAlign(CENTER, CENTER);
-      stroke(0);
-      strokeWeight(2);
-      fill(230, 230, 0);
-      text("Game Over", width / 2, height / 2);
-      noLoop(); // Stop the game
+      lives--; // Reduce one life
+      deathSound.play(); // Play death sound
+
+      if (lives > 0) {
+        resetGame(); // Reset game (score + collectables)
+      }
     }
   }
 
   // Display score
-  textFont(Font);
+  textFont(font);
   fill(0);
   noStroke();
   textSize(40);
   textAlign(LEFT, TOP);
-  text(`Score: ${score}`, 19, 32); // Display score at the top-left corner
+  text(`Score: ${score}`, 19, 35); // Display score at the top-left corner
+  text(`Lives:`, 19, 12);
 
-  // Display "Winner" when all items are collected
-  if (score == 70) {
-    textSize(100);
-    textAlign(CENTER, CENTER);
-    stroke(0);
-    strokeWeight(5);
-    fill(random(255), random(255), random(255));
-    textFont(Font);
-    text("Winner", width / 2, height / 2);
-
-    // Stop the game after a short delay
-    // 2 seconds delay
-    if (frameCount % 120 === 0) {
-      noLoop();
-    }
+  // Check for Game Over AFTER everything is drawn
+  if (lives === 0) {
+    handleGameOver();
+  }
+  // Winning Condition
+  if (score === 70) {
+    showWinScreen();
   }
 } // End of function draw()
+
 // Sun
 function drawSun(sunX, sunY, scaleFactor) {
   noStroke();
@@ -343,7 +452,8 @@ function drawMountains(baseX, baseY, height, width, mainColor, shadowColor) {
     baseY // Shadow edge point
   );
 }
-// Colelctable Item
+
+// Collectable Item
 function drawCollectableItem(collectable, offsetX = 0, offsetY = -100) {
   const x = collectable.x_pos + offsetX;
   const y = collectable.y_pos + offsetY;
@@ -416,7 +526,7 @@ function drawCloud(x, y, size) {
   fill(255); // White color for the cloud
 
   // Define the scale factor to the default size
-  var scaleFactor = size / 100;
+  let scaleFactor = size / 100;
 
   // Top rounded puffs
   ellipse(
@@ -446,13 +556,13 @@ function drawCloud(x, y, size) {
 
 // Infinite Floor
 function drawFloor() {
-  let floorPos_y = 400; // Y position of the ground
+  let floosPos_y = 400; // Y position of the ground
   let floorColor = color(222, 184, 100);
 
   // Draw the continuous ground
   noStroke();
   fill(floorColor);
-  rect(cameraPosX - width / 2, floorPos_y, width * 2, height - floorPos_y);
+  rect(cameraPos_x - width / 2, floosPos_y, width * 2, height - floosPos_y);
 }
 
 // Canyon
@@ -512,7 +622,7 @@ function drawTree(x, y, size) {
   fill(0, 100, 0); // Dark green leaves
   stroke(11, 58, 16); // Dark green outline
   strokeWeight(1.5);
-  for (var i = 0; i < 10; i++) {
+  for (let i = 0; i < 10; i++) {
     ellipse(0, -40, 10, 70); // Long leaves
     rotate(PI / 5); // Rotate for each leaf
   }
@@ -526,6 +636,29 @@ function drawBird(x, y, size) {
   strokeWeight(2);
   arc(x - size * 0.5, y, size, size * 0.5, radians(180), radians(360)); // Left wing
   arc(x + size * 0.5, y, size, size * 0.5, radians(180), radians(360)); // Right wing
+}
+
+function createPlatform(x, y, width, height) {
+  return {
+    x: x,
+    y: y,
+    width: width,
+    height: height,
+    draw: function () {
+      image(platformImg, this.x, this.y, this.width, this.height);
+    },
+    checkCollision: function (charX, charY, charWidth, charHeight) {
+      if (
+        charX + charWidth > this.x &&
+        charX < this.x + this.width &&
+        charY + charHeight > this.y &&
+        charY + charHeight < this.y + this.height
+      ) {
+        return true; // Character is standing on the platform
+      }
+      return false;
+    },
+  };
 }
 
 // Game Character
@@ -690,6 +823,7 @@ function drawFacingFroward(gameChar_x, gameChar_y, scaleFactor) {
     gameChar_y + 234 * scaleFactor
   );
 }
+
 // Walking Right
 function drawRightWalking(
   gameChar_x,
@@ -791,6 +925,7 @@ function drawRightWalking(
     baseY - 44 * size
   );
 }
+
 // Walking Left
 function drawLeftWalking(
   gameChar_x,
@@ -899,6 +1034,7 @@ function drawLeftWalking(
 
   pop(); // Restore the previous transformation state
 }
+
 // Jumping Right
 function drawJumpingRight(
   gameChar_x,
@@ -1011,6 +1147,7 @@ function drawJumpingRight(
     baseY - 44 * size
   );
 }
+
 // Jumping Left
 function drawJumpingLeft(
   gameChar_x,
@@ -1129,6 +1266,7 @@ function drawJumpingLeft(
 
   pop(); // Restore the previous transformation state
 }
+
 // Jumping Front Facing
 function drawJumpingFacingFroward(gameChar_x, gameChar_y, scaleFactor) {
   // Ears
@@ -1288,23 +1426,138 @@ function drawJumpingFacingFroward(gameChar_x, gameChar_y, scaleFactor) {
     gameChar_y + 234 * scaleFactor
   );
 }
-function keyPressed() {
-  console.log("keyPressed: " + key);
-  console.log("keyPressed: " + keyCode);
+// Enemy
+function Enemy(x, y, size, speed) {
+  this.x = x;
+  this.y = y;
+  this.size = size;
+  this.speed = speed;
 
+  this.display = function () {
+    image(enemyImg, this.x, this.y - this.size, this.size, this.size);
+  };
+
+  this.checkCollision = function (charX, charY) {
+    let charBoxX = charX + 85;
+    let charBoxY = charY + 10;
+    let charWidth = 50;
+    let charHeight = 60;
+
+    let enemyBoxX = this.x - cameraPos_x;
+    let enemyBoxY = this.y - 50;
+    let enemyWidth = 50;
+    let enemyHeight = 50;
+
+    if (
+      charBoxX < enemyBoxX + enemyWidth &&
+      charBoxX + charWidth > enemyBoxX &&
+      charBoxY < enemyBoxY + enemyHeight &&
+      charBoxY + charHeight > enemyBoxY
+    ) {
+      console.log("Collision Detected!");
+
+      if (lives > 0) {
+        lives--; // Reduce life
+        meowSound.play();
+
+        if (lives > 0) {
+          resetGame(); // Reset game if lives remain
+        }
+      }
+    }
+  };
+}
+
+function resetGame() {
+  gameChar_x = 200;
+  gameChar_y = groundLevel;
+  isPlummeting = false;
+  velocity_y = 0;
+  score = 0;
+
+  // Reset collectables (mark them as not found instead of redefining the array)
+  collectables.forEach((c) => (c.isFound = false));
+
+  // Reset enemies (reposition instead of recreating)
+  enemies.forEach((enemy, i) => {
+    let x1 = canyon[i].x;
+    let x2 = canyon[i + 1]?.x || x1 + 200;
+    enemy.x = (x1 + x2) / 2;
+    enemy.y = groundLevel + 175;
+  });
+}
+
+// Winning function
+function showWinScreen() {
+  if (!winVideo.elt.playing) {
+    winVideo.loop(); // Loop the video
+    winVideo.volume(0.5); // Adjust volume
+    winVideo.play();
+  }
+
+  // Draw the video
+  image(winVideo, 0, 0, width, height);
+
+  // Overlay "Winner" text
+  textSize(100);
+  textAlign(CENTER, CENTER);
+  stroke(0);
+  strokeWeight(5);
+  fill(random(255), random(255), random(255));
+  textFont(font);
+  text("Winner", width / 2, height / 2);
+
+  if (bgMusic.isPlaying()) {
+    bgMusic.stop(); // Stop background music
+  }
+
+  if (!winSound.isPlaying()) {
+    winSound.play(); // Play victory sound
+  }
+
+  if (frameCount % 700 === 0) {
+    noLoop();
+  }
+}
+
+// Game Over function
+function handleGameOver() {
+  console.log("Game Over: No lives left!");
+
+  if (bgMusic.isPlaying()) {
+    bgMusic.stop(); // Stop background music before playing Game Over sound
+  }
+
+  if (!gameOverSound.isPlaying()) {
+    gameOverSound.play();
+  }
+
+  // Game Over text
+  textFont(font);
+  textSize(100);
+  textAlign(CENTER, CENTER);
+  stroke(0);
+  strokeWeight(2);
+  fill(230, 230, 0);
+  text("Game Over", width / 2, height / 2);
+
+  // DO NOT return; let draw() keep running for background
+  noLoop(); // Stops player movement but keeps background visible
+}
+
+function keyPressed() {
   if (keyCode == 37) {
-    console.log("left arrow pressed");
     isLeft = true;
   }
   if (keyCode == 39) {
-    console.log("right arrow pressed");
     isRight = true;
   }
-  if (keyCode == 32 && isOnGround) {
-    console.log("space bar pressed (jump)");
+  if (keyCode == 32 && isOnGround && !isJumping) {
+    // Prevents double jump
     isJumping = true;
-    velocityY = jumpStrength; // Apply upward velocity
-    isOnGround = false; // Character is now in the air
+    velocity_y = jumpStrength;
+    isOnGround = false;
+    jumpSound.play();
   }
 }
 
